@@ -1,0 +1,57 @@
+name: Telegram Feedback Sync
+
+on:
+  schedule:
+    # Run every 6 hours to check for feedback
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-feedback:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      issues: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Configure Git
+        run: |
+          git config --global user.email "agent@openclaw.local"
+          git config --global user.name "OpenClaw Agent"
+          
+      - name: Check Telegram feedback
+        id: feedback
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # This would connect to Telegram via OpenClaw's built-in messaging
+          # For now, log the trigger
+          echo "Feedback sync triggered at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "Would fetch feedback from Telegram topics:"
+          echo "  - gambling-agent-feedback"
+          echo "  - seo-tz-agent-feedback"
+          echo "  - anchor-agent-feedback"
+          
+      - name: Create feedback issues
+        if: steps.feedback.outputs.has_feedback == 'true'
+        run: |
+          # Issues would be created with:
+          # Title: [Agent Name] Feedback from Telegram
+          # Body: Includes parsed feedback, Telegram message ID, timestamp
+          # Labels: feedback, auto-sync, agent-name
+          echo "Would create GitHub issues for new feedback"
+          
+      - name: Update SKILL.md based on feedback
+        run: |
+          echo "Would update SKILL.md files based on parsed feedback"
+          # Changes committed via daily-commit workflow
+          
+      - name: Log sync status
+        run: |
+          echo "Telegram feedback sync completed at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"

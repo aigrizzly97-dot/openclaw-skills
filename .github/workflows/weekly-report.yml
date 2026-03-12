@@ -1,0 +1,72 @@
+name: Weekly Skill Update Report
+
+on:
+  schedule:
+    # Run every Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  generate-report:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Generate weekly report
+        id: report
+        run: |
+          echo "📊 Weekly Skill Update Report" > /tmp/report.md
+          echo "Generated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> /tmp/report.md
+          echo "" >> /tmp/report.md
+          
+          echo "## Skill Status" >> /tmp/report.md
+          echo "" >> /tmp/report.md
+          
+          # Check each skill
+          for skill_dir in skills/*/; do
+            skill_name=$(basename "$skill_dir")
+            echo "### $skill_name" >> /tmp/report.md
+            
+            if [ -f "$skill_dir/SKILL.md" ]; then
+              version=$(grep "^version:" "$skill_dir/SKILL.md" | cut -d' ' -f2)
+              updated=$(grep "^updated:" "$skill_dir/SKILL.md" | cut -d' ' -f2)
+              
+              echo "- **Version:** $version" >> /tmp/report.md
+              echo "- **Last Updated:** $updated" >> /tmp/report.md
+            fi
+            
+            echo "" >> /tmp/report.md
+          done
+          
+          # Git statistics
+          echo "## Repository Statistics" >> /tmp/report.md
+          echo "" >> /tmp/report.md
+          echo "- **Total Commits (Last 7 days):** $(git log --since='7 days ago' --oneline | wc -l)" >> /tmp/report.md
+          echo "- **Contributors (Last 7 days):** $(git log --since='7 days ago' --format='%aN' | sort -u | wc -l)" >> /tmp/report.md
+          echo "- **Files Changed:** $(git diff --name-only HEAD~1..HEAD | wc -l || echo '0')" >> /tmp/report.md
+          
+          echo "" >> /tmp/report.md
+          echo "## Recent Changes" >> /tmp/report.md
+          echo "" >> /tmp/report.md
+          echo '```' >> /tmp/report.md
+          git log --since='7 days ago' --oneline --decorate | head -10 >> /tmp/report.md
+          echo '```' >> /tmp/report.md
+          
+          # Create output variable
+          echo "report_path=/tmp/report.md" >> $GITHUB_OUTPUT
+          
+      - name: Display report
+        run: cat /tmp/report.md
+        
+      - name: Create release notes (if applicable)
+        run: |
+          echo "Weekly report generated successfully"
+          echo "Repository is ready for weekly review"
+          
+          # Future: Could post to Telegram, create GitHub Release, etc.

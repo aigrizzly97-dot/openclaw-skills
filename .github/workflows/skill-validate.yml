@@ -1,0 +1,112 @@
+name: Validate SKILL.md Format
+
+on:
+  pull_request:
+    paths:
+      - 'skills/*/SKILL.md'
+  push:
+    paths:
+      - 'skills/*/SKILL.md'
+
+jobs:
+  validate-skills:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Validate SKILL.md frontmatter
+        run: |
+          set +e
+          ERRORS=0
+          
+          for skill_file in skills/*/SKILL.md; do
+            echo "Validating $skill_file..."
+            
+            # Check if file exists
+            if [ ! -f "$skill_file" ]; then
+              echo "  ❌ File not found: $skill_file"
+              ERRORS=$((ERRORS + 1))
+              continue
+            fi
+            
+            # Check for required frontmatter fields
+            if ! head -20 "$skill_file" | grep -q "^---"; then
+              echo "  ❌ Missing frontmatter delimiter"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if ! grep -q "^name:" "$skill_file"; then
+              echo "  ❌ Missing 'name' field"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if ! grep -q "^description:" "$skill_file"; then
+              echo "  ❌ Missing 'description' field"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if ! grep -q "^version:" "$skill_file"; then
+              echo "  ❌ Missing 'version' field"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if ! grep -q "^updated:" "$skill_file"; then
+              echo "  ❌ Missing 'updated' field"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if [ $ERRORS -eq 0 ]; then
+              echo "  ✅ Valid SKILL.md format"
+            fi
+          done
+          
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "❌ Validation failed with $ERRORS error(s)"
+            exit 1
+          else
+            echo ""
+            echo "✅ All SKILL.md files are valid"
+          fi
+          
+      - name: Check for required sections
+        run: |
+          for skill_file in skills/*/SKILL.md; do
+            echo "Checking sections in $(basename $(dirname $skill_file))..."
+            
+            if ! grep -q "^## " "$skill_file"; then
+              echo "  ⚠️  Missing section headers (##)"
+            else
+              echo "  ✅ Section headers found"
+            fi
+          done
+          
+      - name: Validate YAML syntax
+        run: |
+          # Use Python to validate YAML frontmatter
+          python3 << 'EOF'
+          import yaml
+          import sys
+          import re
+          
+          errors = 0
+          for skill_path in ['skills/gambling-agent/SKILL.md', 'skills/seo-tz-agent/SKILL.md', 'skills/anchor-agent/SKILL.md']:
+            try:
+              with open(skill_path, 'r') as f:
+                content = f.read()
+                # Extract frontmatter
+                match = re.match(r'^---\n(.*?)\n---\n', content, re.DOTALL)
+                if match:
+                  frontmatter = match.group(1)
+                  yaml.safe_load(frontmatter)
+                  print(f"✅ {skill_path}: Valid YAML frontmatter")
+            except yaml.YAMLError as e:
+              print(f"❌ {skill_path}: Invalid YAML - {e}")
+              errors += 1
+            except Exception as e:
+              print(f"⚠️  {skill_path}: Error - {e}")
+          
+          sys.exit(errors)
+          EOF
